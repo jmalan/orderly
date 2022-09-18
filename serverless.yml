@@ -1,0 +1,95 @@
+service: orderly
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  region: eu-west-1
+  stage: dev
+  environment:
+    tableName: ${self:custom.tableName}
+    region: ${self:provider.region}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource: '*'
+
+custom:
+  tableName: WebsocketUsers
+
+functions:
+  authorize:
+    handler: lambdas/auth/authorize.handler
+    environment:
+      USER_POOL_ID:
+        Ref: CognitoUserPool
+  websocket-connect:
+    handler: lambdas/websockets/connect.handler
+    events:
+      - websocket:
+          route: $connect
+          authorizer:
+            name: authorize
+            identitySource:
+              - 'route.request.header.Authorization'
+  websocket-disconnect:
+    handler: lambdas/websockets/disconnect.handler
+    events:
+      - websocket:
+          route: $disconnect
+  websocket-default:
+    handler: lambdas/websockets/default.handler
+    events:
+      - websocket:
+          route: $default
+  websocket-message:
+    handler: lambdas/websockets/message.handler
+    events:
+      - websocket:
+          route: message
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        AdminCreateUserConfig: 
+          AllowAdminCreateUserOnly: false
+        UserPoolName: ${self:service}-${self:provider.stage}-user-pool
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        EmailConfiguration: 
+          ReplyToEmailAddress: donotreply@domain.tld
+        EmailVerificationMessage: Your verification code is {####}.
+        EmailVerificationSubject: Your verification code
+        MfaConfiguration: OFF
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+            RequireUppercase: true
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-${self:provider.stage}-user-pool-client
+        UserPoolId:
+          Ref: CognitoUserPool
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+        GenerateSecret: false
+    WebocketUserTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        AttributeDefinitions:
+          - AttributeName: ID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: ID
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
