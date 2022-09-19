@@ -7,12 +7,12 @@ const tableName = process.env.tableName;
 exports.handler = async event => {
   console.log('event', event);
 
-  const {connectionId: connectionID} = event.requestContext;
+  const {connectionId} = event.requestContext;
 
   const body = JSON.parse(event.body);
 
   try {
-    const record = await Dynamo.get(connectionID, tableName);
+    const record = await Dynamo.get(connectionId, tableName);
     const { messages, domainName, stage } = record;
 
     messages.push(body.message);
@@ -27,7 +27,7 @@ exports.handler = async event => {
     await WebSocket.send({
       domainName,
       stage,
-      connectionID,
+      connectionId,
       message: 'this is a reply to your message'
     });
 

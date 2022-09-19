@@ -8,12 +8,12 @@ const create = (domainName, stage) => {
   });
 };
 
-const send = ({ domainName, stage, connectionID, message }) => {
+const send = ({ domainName, stage, connectionId, message }) => {
   const ws = create(domainName, stage);
 
   const postParams = {
     Data: message,
-    ConnectionId: connectionID,
+    ConnectionId: connectionId,
   };
 
   return ws.postToConnection(postParams).promise();

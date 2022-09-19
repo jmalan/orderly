@@ -9,6 +9,7 @@ provider:
   stage: dev
   environment:
     tableName: ${self:custom.tableName}
+    establishmentTableName: ${self:custom.establishmentTableName}
     region: ${self:provider.region}
   iamRoleStatements:
     - Effect: Allow
@@ -18,6 +19,7 @@ provider:
 
 custom:
   tableName: WebsocketUsers
+  establishmentTableName: ${self:service}-${self:provider.stage}-establishment
 
 functions:
   authorize:
@@ -44,11 +46,17 @@ functions:
     events:
       - websocket:
           route: $default
+  websocket-establishment:
+    handler: lambdas/websockets/establishment.handler
+    events:
+      - websocket:
+          route: establishment
   websocket-message:
     handler: lambdas/websockets/message.handler
     events:
       - websocket:
           route: message
+    
 resources:
   Resources:
     CognitoUserPool:
@@ -82,6 +90,17 @@ resources:
         ExplicitAuthFlows:
           - ADMIN_NO_SRP_AUTH
         GenerateSecret: false
+    EstablishmentTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.establishmentTableName}
+        AttributeDefinitions:
+          - AttributeName: ID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: ID
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
     WebocketUserTable:
       Type: AWS::DynamoDB::Table
       Properties:
